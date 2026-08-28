@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ฉันอยู่หมวดไหน? เกมบัญชีเบื้องต้น</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;background:linear-gradient(135deg,#eef7ff,#fff7e8);color:#17324d}
+.wrap{max-width:980px;margin:auto;padding:24px}.card{background:white;border-radius:24px;padding:28px;box-shadow:0 10px 30px #234d6b18}
+h1{margin:0 0 8px;text-align:center;font-size:clamp(28px,5vw,44px)} .sub{text-align:center;color:#60758a;margin-bottom:22px}
+.stats{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}.pill{padding:9px 15px;border-radius:999px;background:#edf5fb;font-weight:700}
+.question{font-size:clamp(25px,4vw,36px);font-weight:800;text-align:center;margin:28px 0}
+.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.choice{border:0;border-radius:18px;padding:20px 10px;font-size:22px;font-weight:800;cursor:pointer;background:#f1f6fa;color:#17324d;transition:.15s}.choice:hover{transform:translateY(-3px);background:#dfeef8}
+.choice:disabled{cursor:default;opacity:.8}.correct{background:#d9f7df!important}.wrong{background:#ffdede!important}
+.feedback{text-align:center;min-height:65px;margin:20px 0;font-size:19px;font-weight:700}.explain{font-size:16px;font-weight:500;color:#5b6f80}
+.controls{display:flex;justify-content:center;gap:12px}.btn{border:0;border-radius:14px;padding:12px 20px;font-size:17px;font-weight:800;cursor:pointer;background:#17324d;color:white}.btn.secondary{background:#e9eef2;color:#17324d}
+.hidden{display:none}.result{text-align:center}.score{font-size:54px;font-weight:900;margin:15px}
+table{width:100%;border-collapse:collapse;margin-top:18px}th,td{padding:10px;border-bottom:1px solid #e5ebef;text-align:left}th{background:#f4f8fb}
+@media(max-width:700px){.choices{grid-template-columns:1fr}.wrap{padding:12px}.card{padding:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+  <div id="game">
+    <h1>🎯 ฉันอยู่หมวดไหน?</h1>
+    <div class="sub">เกมจำแนกชื่อบัญชี • วิชาการบัญชีเบื้องต้น</div>
+    <div class="stats">
+      <div class="pill">ข้อที่ <span id="qno">1</span>/<span id="total">15</span></div>
+      <div class="pill">คะแนน: <span id="score">0</span></div>
+      <div class="pill">🔥 ต่อเนื่อง: <span id="streak">0</span></div>
+    </div>
+    <div class="question" id="question"></div>
+    <div class="choices">
+      <button class="choice" data-cat="สินทรัพย์">💰 สินทรัพย์</button>
+      <button class="choice" data-cat="หนี้สิน">📌 หนี้สิน</button>
+      <button class="choice" data-cat="ส่วนของเจ้าของ">👤 ส่วนของเจ้าของ</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="controls"><button class="btn secondary" onclick="restart()">เริ่มใหม่</button></div>
+  </div>
+
+  <div id="result" class="result hidden">
+    <h1>🏆 จบเกม!</h1>
+    <div class="score"><span id="finalScore">0</span> / <span id="maxScore">150</span></div>
+    <div id="message"></div>
+    <table><thead><tr><th>หมวด</th><th>จำนวนข้อที่ตอบถูก</th></tr></thead>
+      <tbody><tr><td>💰 สินทรัพย์</td><td id="aCount">0</td></tr>
+      <tr><td>📌 หนี้สิน</td><td id="lCount">0</td></tr>
+      <tr><td>👤 ส่วนของเจ้าของ</td><td id="eCount">0</td></tr></tbody>
+    </table>
+    <br><button class="btn" onclick="restart()">🔄 เล่นอีกครั้ง</button>
+  </div>
+</div>
+</div>
+<script>
+const bank = [
+["เงินสด","สินทรัพย์","ทรัพยากรที่กิจการมีและควบคุมได้"],
+["เงินฝากธนาคาร","สินทรัพย์","เงินของกิจการที่ฝากไว้กับธนาคาร"],
+["ลูกหนี้การค้า","สินทรัพย์","จำนวนเงินที่ลูกค้าค้างชำระกิจการ"],
+["สินค้าคงเหลือ","สินทรัพย์","สินค้าที่กิจการมีไว้เพื่อขาย"],
+["อุปกรณ์สำนักงาน","สินทรัพย์","ทรัพย์สินที่ใช้ในการดำเนินงาน"],
+["อาคาร","สินทรัพย์","ทรัพย์สินที่กิจการเป็นเจ้าของและใช้ประโยชน์"],
+["รถยนต์","สินทรัพย์","ทรัพย์สินที่ใช้ในการดำเนินงาน"],
+["เจ้าหนี้การค้า","หนี้สิน","จำนวนเงินที่กิจการค้างชำระบุคคลภายนอก"],
+["เงินกู้","หนี้สิน","ภาระผูกพันที่กิจการต้องชำระคืน"],
+["ตั๋วเงินจ่าย","หนี้สิน","ภาระที่กิจการต้องจ่ายตามตั๋ว"],
+["ค่าใช้จ่ายค้างจ่าย","หนี้สิน","ค่าใช้จ่ายที่เกิดขึ้นแล้วแต่ยังไม่ได้จ่าย"],
+["รายได้รับล่วงหน้า","หนี้สิน","เงินที่ได้รับก่อนให้บริการหรือส่งมอบงาน"],
+["ทุน","ส่วนของเจ้าของ","เงินลงทุนของเจ้าของในกิจการ"],
+["ถอนใช้ส่วนตัว","ส่วนของเจ้าของ","รายการที่ลดส่วนของเจ้าของ"],
+["กำไรสะสม","ส่วนของเจ้าของ","กำไรที่กิจการสะสมไว้และยังไม่ได้จัดสรร"]
+];
+
+let questions=[], index=0, score=0, streak=0, locked=false, counts={สินทรัพย์:0,หนี้สิน:0,"ส่วนของเจ้าของ":0};
+const $=id=>document.getElementById(id);
+
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function restart(){
+  questions=shuffle(bank).slice(0,15); index=0; score=0; streak=0; locked=false;
+  counts={สินทรัพย์:0,หนี้สิน:0,"ส่วนของเจ้าของ":0};
+  $("game").classList.remove("hidden"); $("result").classList.add("hidden");
+  $("total").textContent=questions.length; render();
+}
+function render(){
+  locked=false; $("qno").textContent=index+1; $("score").textContent=score; $("streak").textContent=streak;
+  $("question").textContent="ชื่อบัญชี: “"+questions[index][0]+"” อยู่ในหมวดใด?";
+  $("feedback").innerHTML="";
+  document.querySelectorAll(".choice").forEach(b=>{b.disabled=false;b.className="choice"});
+}
+document.querySelectorAll(".choice").forEach(btn=>btn.addEventListener("click",()=>{
+  if(locked)return; locked=true;
+  const selected=btn.dataset.cat, [name,correct,why]=questions[index];
+  document.querySelectorAll(".choice").forEach(b=>b.disabled=true);
+  if(selected===correct){
+    score+=10; streak++; counts[correct]++; btn.classList.add("correct");
+    $("feedback").innerHTML="✅ ถูกต้อง! <div class='explain'>"+why+"</div>";
+  }else{
+    streak=0; btn.classList.add("wrong");
+    document.querySelector(`[data-cat="${correct}"]`).classList.add("correct");
+    $("feedback").innerHTML="❌ ยังไม่ถูก — คำตอบคือ <b>"+correct+"</b><div class='explain'>"+why+"</div>";
+  }
+  $("score").textContent=score; $("streak").textContent=streak;
+  setTimeout(()=>{index++; if(index<questions.length) render(); else finish();},1200);
+}));
+function finish(){
+  $("game").classList.add("hidden"); $("result").classList.remove("hidden");
+  $("finalScore").textContent=score; $("maxScore").textContent=questions.length*10;
+  $("aCount").textContent=counts["สินทรัพย์"]; $("lCount").textContent=counts["หนี้สิน"]; $("eCount").textContent=counts["ส่วนของเจ้าของ"];
+  const pct=score/(questions.length*10)*100;
+  $("message").innerHTML=pct>=80?"🌟 เยี่ยมมาก! จำแนกหมวดบัญชีได้ดีมาก":pct>=60?"👍 ทำได้ดี ลองทบทวนบัญชีที่ตอบผิดอีกนิด":"📚 ลองเล่นอีกครั้งและทบทวนความหมายของแต่ละหมวด";
+}
+restart();
+</script>
+</body>
+</html>
